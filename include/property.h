@@ -1,101 +1,127 @@
-/* MIT License
-
-Copyright (c) 2019 Alexandre Bourlon
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE. */
-
-#ifndef PROPERTY_H_INCLUDED
-#define PROPERTY_H_INCLUDED
-
+#pragma once
 #include <functional>
 #include <utility>
+#include <type_traits>
 
 namespace CppProperty
 {
+    /**
+     * @namespace CppProperty::details
+     * @brief Implementations details for C++14 properties
+     */
+    namespace details{
+        /**
+         * @brief Type traits for properties
+         * @tparam T being the type of values
+         */
+        template <class T>
+        struct property_traits{
+            using value_type = std::remove_reference_t<std::remove_cv_t<T>>;
+            using getter_type = std::function<value_type()>;
+            using setter_type = std::function<void(value_type)>;
+        };
+
+        /**
+         * @brief Type traits for properties (based on a reference)
+         * @tparam T being the type of reference
+         */
+        template <class T>
+        struct property_traits<T&>{
+            using ref_type = T&;
+            using value_type = std::remove_reference_t<std::remove_cv_t<T>>;
+            using getter_type = std::function<ref_type()>;
+            using setter_type = std::function<void(value_type)>;
+        };
+    }
+
+    /**
+     * @brief A class that allows use of transparent getters and setters through the implicit conversions and assignment operators
+     * @tparam T being the type of value to get from the property
+     */
     template<class T>
     class property
     {
     public:
-        property(std::function<T()> xget, std::function<void(T)> xset)
+        using trait_type = details::property_traits<T>;
+        using value_type = typename trait_type::value_type;
+        using getter_type = typename trait_type::getter_type;
+        using setter_type = typename trait_type::setter_type;
+
+        property(getter_type xget, setter_type xset)
             : get_{ std::move(xget) }
             , set_{ std::move(xset) }
         {            
         }
 
-        operator T () const
+        operator value_type () const
         {
             return get_();
         }
 
-        void operator=(T const& value)
+        property& operator=(value_type const& value)
         {
             set_(value);
+            return *this;
         }
 
-        void operator=(T&& value)
+        property& operator=(value_type&& value)
         {
             set_(std::move(value));
+            return *this;
         }
 
     private:
-        std::function<T()> get_;
-        std::function<void(T)> set_;
+        getter_type get_;
+        setter_type set_;
     };
 
+    /**
+     * @brief A class that allows use of transparent getters and setters through the implicit conversions and assignment operators
+     * @tparam T being the type of references to get from the property
+     */
     template<class T>
     class property<T&>
     {
     public:
-        property(std::function<T&()> xget, std::function<void(T)> xset)
+        using trait_type = details::property_traits<T&>;
+        using value_type = typename trait_type::value_type;
+        using getter_type = typename trait_type::getter_type;
+        using setter_type = typename trait_type::setter_type;
+
+        property(getter_type xget, setter_type xset)
             : get_{ std::move(xget) }
             , set_{ std::move(xset) }
         {            
         }
 
-        operator T& ()
+        operator value_type& ()
         {
             return get_();
         }
 
-        operator T const& () const
+        operator value_type const& () const
         {
             return get_();
         }
 
-        void operator=(T const& value)
+        property& operator=(value_type const& value)
         {
             set_(value);
+            return *this;
         }
 
-        void operator=(T&& value)
+        property& operator=(value_type&& value)
         {
             set_(std::move(value));
+            return *this;
         }
 
     private:
-        std::function<T&()> get_;
-        std::function<void(T)> set_;
+        getter_type get_;
+        setter_type set_;
     };
 }
 
-#define get [this]()
-#define getref [this]() ->auto&
-#define set [this](auto&& value)
-
-#endif // PROPERTY_H_INCLUDED
+#define prop_get [this]
+#define prop_getref [this]() ->auto&
+#define prop_set [this](auto&& value)

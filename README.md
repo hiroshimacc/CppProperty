@@ -1,6 +1,6 @@
 # CppProperty
 
-C#-like properties in C++
+C#-like properties in C++14
 
 ## Overview
 
